@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# Credentials and config files (contain API keys and session tokens)
+.tgrc.json5
+config.json5
+.env
+.env.*

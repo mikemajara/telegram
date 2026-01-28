@@ -1,0 +1,44 @@
+{
+  "name": "@cyberdrk/tg",
+  "version": "0.1.0",
+  "description": "Fast Telegram CLI for reading, searching, and sending messages",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "tg": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "telegram",
+    "cli",
+    "messaging",
+    "chat"
+  ],
+  "author": "Derek Rein",
+  "license": "MIT",
+  "dependencies": {
+    "big-integer": "^1.6.52",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "input": "^1.0.1",
+    "json5": "^2.2.3",
+    "ora": "^8.1.0",
+    "telegram": "^2.25.15"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "SKILL.md"
+  ]
+}

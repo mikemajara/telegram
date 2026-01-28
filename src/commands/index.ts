@@ -1,0 +1,13 @@
+export { authCommand } from './auth.js';
+export { whoamiCommand } from './whoami.js';
+export { checkCommand } from './check.js';
+export { chatsCommand } from './chats.js';
+export { readCommand } from './read.js';
+export { searchCommand } from './search.js';
+export { sendCommand } from './send.js';
+export { replyCommand } from './reply.js';
+export { inboxCommand } from './inbox.js';
+export { contactCommand } from './contact.js';
+export { membersCommand, adminsCommand } from './members.js';
+export { groupsCommand } from './groups.js';
+export { syncCommand } from './sync.js';

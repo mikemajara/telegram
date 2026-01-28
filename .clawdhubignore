@@ -1,0 +1,24 @@
+# Only publish SKILL.md and README.md for the skill
+# Exclude everything else
+
+# Source code
+src/
+dist/
+scripts/
+
+# Config files
+*.json
+*.json5
+*.yaml
+*.yml
+*.toml
+tsconfig*.json
+package-lock.json
+
+# Docs (except README and SKILL)
+CLAUDE.md
+CONTRIBUTING.md
+LICENSE
+
+# GitHub
+.github/
