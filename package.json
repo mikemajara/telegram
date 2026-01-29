@@ -1,11 +1,11 @@
 {
-  "name": "@cyberdrk/tg",
-  "version": "0.1.1",
+  "name": "@skillhq/telegram",
+  "version": "0.2.0",
   "description": "Fast Telegram CLI for reading, searching, and sending messages",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "tg": "dist/index.js"
+    "telegram": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -23,11 +23,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cyberdrk305/telegram.git"
+    "url": "git+https://github.com/skillhq/telegram.git"
   },
-  "homepage": "https://github.com/cyberdrk305/telegram#readme",
+  "homepage": "https://github.com/skillhq/telegram#readme",
   "bugs": {
-    "url": "https://github.com/cyberdrk305/telegram/issues"
+    "url": "https://github.com/skillhq/telegram/issues"
   },
   "dependencies": {
     "big-integer": "^1.6.52",
