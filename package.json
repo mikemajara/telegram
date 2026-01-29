@@ -32,14 +32,13 @@
   "dependencies": {
     "big-integer": "^1.6.52",
     "chalk": "^5.3.0",
-    "commander": "^12.1.0",
-    "input": "^1.0.1",
+    "commander": "^14.0.0",
     "json5": "^2.2.3",
     "ora": "^8.1.0",
-    "telegram": "^2.25.15"
+    "telegram": "^2.26.0"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
+    "@types/node": "^22.0.0",
     "typescript": "^5.7.0"
   },
   "engines": {
