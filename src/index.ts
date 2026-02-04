@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import { createRequire } from 'module';
 import {
   authCommand,
   whoamiCommand,
@@ -25,12 +26,15 @@ import {
   folderRemoveCommand,
 } from './commands/index.js';
 
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
+
 const program = new Command();
 
 program
   .name('tg')
   .description('Fast Telegram CLI for reading, searching, and sending messages')
-  .version('0.1.0');
+  .version(pkg.version);
 
 // Auth commands
 program.addCommand(authCommand);
