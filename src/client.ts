@@ -529,9 +529,11 @@ function getChatTitle(entity: ResolvedEntity): string {
 
 // --- Mute/Unmute Functions ---
 
-export function parseDurationToSeconds(duration: string): number {
+const MAX_INT32 = 2147483647;
+
+export function parseDuration(duration: string): { seconds: number; isForever: boolean } {
   if (duration === 'forever') {
-    return 2147483647; // Max int32 - effectively forever
+    return { seconds: 0, isForever: true };
   }
 
   const match = duration.match(/^(\d+)(m|h|d|w)$/);
@@ -542,13 +544,24 @@ export function parseDurationToSeconds(duration: string): number {
   const value = parseInt(match[1], 10);
   const unit = match[2];
 
+  let seconds: number;
   switch (unit) {
-    case 'm': return value * 60;
-    case 'h': return value * 3600;
-    case 'd': return value * 86400;
-    case 'w': return value * 604800;
+    case 'm': seconds = value * 60; break;
+    case 'h': seconds = value * 3600; break;
+    case 'd': seconds = value * 86400; break;
+    case 'w': seconds = value * 604800; break;
     default: throw new Error(`Unknown duration unit: ${unit}`);
   }
+
+  return { seconds, isForever: false };
+}
+
+// Keep for backward compatibility
+export function parseDurationToSeconds(duration: string): number {
+  if (duration === 'forever') {
+    return MAX_INT32;
+  }
+  return parseDuration(duration).seconds;
 }
 
 export async function muteChat(
@@ -558,7 +571,6 @@ export async function muteChat(
 ): Promise<{ success: boolean; message: string }> {
   const chat = await resolveChat(client, chatIdentifier);
   const chatTitle = getChatTitle(chat);
-  const muteSeconds = parseDurationToSeconds(duration);
 
   let inputPeer: Api.TypeInputNotifyPeer;
   if (chat instanceof Api.User) {
@@ -578,7 +590,12 @@ export async function muteChat(
   }
 
   try {
-    const muteUntil = Math.floor(Date.now() / 1000) + muteSeconds;
+    const parsed = parseDuration(duration);
+    // For "forever", use MAX_INT32 directly; otherwise add seconds to current time
+    const muteUntil = parsed.isForever
+      ? MAX_INT32
+      : Math.floor(Date.now() / 1000) + parsed.seconds;
+
     await client.invoke(
       new Api.account.UpdateNotifySettings({
         peer: inputPeer,
