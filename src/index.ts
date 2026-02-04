@@ -16,6 +16,13 @@ import {
   adminsCommand,
   groupsCommand,
   syncCommand,
+  kickCommand,
+  muteCommand,
+  unmuteCommand,
+  foldersCommand,
+  folderCommand,
+  folderAddCommand,
+  folderRemoveCommand,
 } from './commands/index.js';
 
 const program = new Command();
@@ -41,6 +48,15 @@ program.addCommand(contactCommand);
 program.addCommand(membersCommand);
 program.addCommand(adminsCommand);
 program.addCommand(groupsCommand);
+program.addCommand(kickCommand);
+program.addCommand(muteCommand);
+program.addCommand(unmuteCommand);
+
+// Folder commands
+program.addCommand(foldersCommand);
+program.addCommand(folderCommand);
+program.addCommand(folderAddCommand);
+program.addCommand(folderRemoveCommand);
 
 // Write commands
 program.addCommand(sendCommand);

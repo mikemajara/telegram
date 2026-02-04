@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import type { ChatInfo, MessageInfo } from '../client.js';
+import type { ChatInfo, MessageInfo, FolderInfo } from '../client.js';
 
 export function formatChats(chats: ChatInfo[]): string {
   const lines: string[] = [];
@@ -166,4 +166,52 @@ function formatTime(date: Date): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+export function formatFolders(folders: FolderInfo[]): string {
+  const lines: string[] = [];
+
+  lines.push(chalk.bold(`\n${folders.length} folder${folders.length !== 1 ? 's' : ''}:\n`));
+
+  for (const folder of folders) {
+    const emoticon = folder.emoticon ? `${folder.emoticon} ` : '📁 ';
+    const chatCount = folder.includedChats.length;
+    lines.push(`${emoticon}${chalk.bold(folder.title)} ${chalk.gray(`(${chatCount} chat${chatCount !== 1 ? 's' : ''})`)}`);
+  }
+
+  return lines.join('\n');
+}
+
+export function formatFolder(folder: FolderInfo): string {
+  const lines: string[] = [];
+
+  const emoticon = folder.emoticon ? `${folder.emoticon} ` : '📁 ';
+  lines.push(chalk.bold(`\n${emoticon}${folder.title}\n`));
+
+  if (folder.includedChats.length === 0) {
+    lines.push(chalk.gray('  No chats in this folder'));
+  } else {
+    lines.push(chalk.gray(`  ${folder.includedChats.length} chat${folder.includedChats.length !== 1 ? 's' : ''}:\n`));
+
+    for (const chat of folder.includedChats) {
+      const typeIcon = getFolderChatIcon(chat.type);
+      lines.push(`  ${typeIcon} ${chat.title}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function getFolderChatIcon(type: string): string {
+  switch (type) {
+    case 'user':
+      return '👤';
+    case 'group':
+    case 'supergroup':
+      return '👥';
+    case 'channel':
+      return '📢';
+    default:
+      return '💬';
+  }
 }

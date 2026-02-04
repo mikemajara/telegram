@@ -59,6 +59,23 @@ telegram admins "GroupName"                  # List admins only
 telegram groups --admin                      # Groups where you're admin
 ```
 
+### Muting
+```bash
+telegram mute "ChatName"                     # Mute forever
+telegram mute "ChatName" -d 1h               # Mute for 1 hour
+telegram mute @username -d 8h                # Mute DM for 8 hours
+telegram mute "GroupName" -d 1d              # Mute for 1 day
+telegram unmute "ChatName"                   # Unmute
+```
+
+### Folders
+```bash
+telegram folders                             # List all folders
+telegram folder "Work"                       # Show chats in folder
+telegram folder-add "Work" "ProjectChat"     # Add chat to folder
+telegram folder-remove "Work" "ProjectChat"  # Remove chat from folder
+```
+
 ### Status
 ```bash
 telegram whoami                              # Show logged-in account

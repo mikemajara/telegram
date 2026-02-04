@@ -526,3 +526,447 @@ function getChatTitle(entity: ResolvedEntity): string {
   }
   return 'Unknown';
 }
+
+// --- Mute/Unmute Functions ---
+
+export function parseDurationToSeconds(duration: string): number {
+  if (duration === 'forever') {
+    return 2147483647; // Max int32 - effectively forever
+  }
+
+  const match = duration.match(/^(\d+)(m|h|d|w)$/);
+  if (!match) {
+    throw new Error(`Invalid duration format: ${duration}. Use formats like 1h, 8h, 1d, 1w, or "forever"`);
+  }
+
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+
+  switch (unit) {
+    case 'm': return value * 60;
+    case 'h': return value * 3600;
+    case 'd': return value * 86400;
+    case 'w': return value * 604800;
+    default: throw new Error(`Unknown duration unit: ${unit}`);
+  }
+}
+
+export async function muteChat(
+  client: TelegramClient,
+  chatIdentifier: string,
+  duration: string = 'forever'
+): Promise<{ success: boolean; message: string }> {
+  const chat = await resolveChat(client, chatIdentifier);
+  const chatTitle = getChatTitle(chat);
+  const muteSeconds = parseDurationToSeconds(duration);
+
+  let inputPeer: Api.TypeInputNotifyPeer;
+  if (chat instanceof Api.User) {
+    inputPeer = new Api.InputNotifyPeer({
+      peer: new Api.InputPeerUser({ userId: chat.id, accessHash: chat.accessHash || bigInt(0) })
+    });
+  } else if (chat instanceof Api.Chat) {
+    inputPeer = new Api.InputNotifyPeer({
+      peer: new Api.InputPeerChat({ chatId: chat.id })
+    });
+  } else if (chat instanceof Api.Channel) {
+    inputPeer = new Api.InputNotifyPeer({
+      peer: new Api.InputPeerChannel({ channelId: chat.id, accessHash: chat.accessHash || bigInt(0) })
+    });
+  } else {
+    return { success: false, message: 'Unknown chat type' };
+  }
+
+  try {
+    const muteUntil = Math.floor(Date.now() / 1000) + muteSeconds;
+    await client.invoke(
+      new Api.account.UpdateNotifySettings({
+        peer: inputPeer,
+        settings: new Api.InputPeerNotifySettings({
+          muteUntil,
+        }),
+      })
+    );
+
+    const durationText = duration === 'forever' ? 'forever' : `for ${duration}`;
+    return { success: true, message: `Muted "${chatTitle}" ${durationText}` };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { success: false, message: msg };
+  }
+}
+
+export async function unmuteChat(
+  client: TelegramClient,
+  chatIdentifier: string
+): Promise<{ success: boolean; message: string }> {
+  const chat = await resolveChat(client, chatIdentifier);
+  const chatTitle = getChatTitle(chat);
+
+  let inputPeer: Api.TypeInputNotifyPeer;
+  if (chat instanceof Api.User) {
+    inputPeer = new Api.InputNotifyPeer({
+      peer: new Api.InputPeerUser({ userId: chat.id, accessHash: chat.accessHash || bigInt(0) })
+    });
+  } else if (chat instanceof Api.Chat) {
+    inputPeer = new Api.InputNotifyPeer({
+      peer: new Api.InputPeerChat({ chatId: chat.id })
+    });
+  } else if (chat instanceof Api.Channel) {
+    inputPeer = new Api.InputNotifyPeer({
+      peer: new Api.InputPeerChannel({ channelId: chat.id, accessHash: chat.accessHash || bigInt(0) })
+    });
+  } else {
+    return { success: false, message: 'Unknown chat type' };
+  }
+
+  try {
+    await client.invoke(
+      new Api.account.UpdateNotifySettings({
+        peer: inputPeer,
+        settings: new Api.InputPeerNotifySettings({
+          muteUntil: 0,
+        }),
+      })
+    );
+
+    return { success: true, message: `Unmuted "${chatTitle}"` };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { success: false, message: msg };
+  }
+}
+
+// --- Folder Functions ---
+
+export interface FolderInfo {
+  id: number;
+  title: string;
+  includedChats: { id: string; title: string; type: string }[];
+  excludedChats: { id: string; title: string; type: string }[];
+  emoticon?: string;
+}
+
+export async function getFolders(client: TelegramClient): Promise<FolderInfo[]> {
+  const result = await client.invoke(new Api.messages.GetDialogFilters());
+
+  const folders: FolderInfo[] = [];
+
+  for (const filter of result.filters) {
+    if (filter instanceof Api.DialogFilter) {
+      const includedChats: { id: string; title: string; type: string }[] = [];
+      const excludedChats: { id: string; title: string; type: string }[] = [];
+
+      // Resolve included peers
+      for (const peer of filter.includePeers) {
+        try {
+          const entity = await client.getEntity(peer);
+          if (entity instanceof Api.User || entity instanceof Api.Chat || entity instanceof Api.Channel) {
+            includedChats.push({
+              id: entity.id.toString(),
+              title: getChatTitleFromEntity(entity),
+              type: getEntityType(entity),
+            });
+          }
+        } catch {
+          // Skip unresolvable peers
+        }
+      }
+
+      // Resolve excluded peers
+      for (const peer of filter.excludePeers) {
+        try {
+          const entity = await client.getEntity(peer);
+          if (entity instanceof Api.User || entity instanceof Api.Chat || entity instanceof Api.Channel) {
+            excludedChats.push({
+              id: entity.id.toString(),
+              title: getChatTitleFromEntity(entity),
+              type: getEntityType(entity),
+            });
+          }
+        } catch {
+          // Skip unresolvable peers
+        }
+      }
+
+      // Handle title which can be string or TextWithEntities
+      const titleStr = typeof filter.title === 'string' ? filter.title : (filter.title?.text ?? 'Untitled');
+
+      folders.push({
+        id: filter.id,
+        title: titleStr,
+        includedChats,
+        excludedChats,
+        emoticon: filter.emoticon ?? undefined,
+      });
+    }
+  }
+
+  return folders;
+}
+
+export async function getFolder(
+  client: TelegramClient,
+  folderName: string
+): Promise<FolderInfo | null> {
+  const folders = await getFolders(client);
+  return folders.find(f => f.title.toLowerCase() === folderName.toLowerCase()) || null;
+}
+
+export async function addChatToFolder(
+  client: TelegramClient,
+  folderName: string,
+  chatIdentifier: string
+): Promise<{ success: boolean; message: string }> {
+  const result = await client.invoke(new Api.messages.GetDialogFilters());
+
+  let targetFilter: Api.DialogFilter | null = null;
+  for (const filter of result.filters) {
+    if (filter instanceof Api.DialogFilter) {
+      const filterTitle = typeof filter.title === 'string' ? filter.title : (filter.title?.text ?? '');
+      if (filterTitle.toLowerCase() === folderName.toLowerCase()) {
+        targetFilter = filter;
+        break;
+      }
+    }
+  }
+
+  if (!targetFilter) {
+    return { success: false, message: `Folder not found: ${folderName}` };
+  }
+
+  const chat = await resolveChat(client, chatIdentifier);
+  const chatTitle = getChatTitle(chat);
+  const folderTitle = typeof targetFilter.title === 'string' ? targetFilter.title : (targetFilter.title?.text ?? 'Untitled');
+
+  // Create the input peer for the chat
+  let inputPeer: Api.TypeInputPeer;
+  if (chat instanceof Api.User) {
+    inputPeer = new Api.InputPeerUser({ userId: chat.id, accessHash: chat.accessHash || bigInt(0) });
+  } else if (chat instanceof Api.Chat) {
+    inputPeer = new Api.InputPeerChat({ chatId: chat.id });
+  } else if (chat instanceof Api.Channel) {
+    inputPeer = new Api.InputPeerChannel({ channelId: chat.id, accessHash: chat.accessHash || bigInt(0) });
+  } else {
+    return { success: false, message: 'Unknown chat type' };
+  }
+
+  // Check if already included
+  for (const peer of targetFilter.includePeers) {
+    try {
+      const entity = await client.getEntity(peer);
+      if (entity.id.equals(chat.id)) {
+        return { success: false, message: `"${chatTitle}" is already in folder "${folderTitle}"` };
+      }
+    } catch {
+      // Skip
+    }
+  }
+
+  // Add to includePeers
+  const newIncludePeers = [...targetFilter.includePeers, inputPeer];
+
+  try {
+    await client.invoke(
+      new Api.messages.UpdateDialogFilter({
+        id: targetFilter.id,
+        filter: new Api.DialogFilter({
+          id: targetFilter.id,
+          title: targetFilter.title,
+          pinnedPeers: targetFilter.pinnedPeers,
+          includePeers: newIncludePeers,
+          excludePeers: targetFilter.excludePeers,
+          contacts: targetFilter.contacts,
+          nonContacts: targetFilter.nonContacts,
+          groups: targetFilter.groups,
+          broadcasts: targetFilter.broadcasts,
+          bots: targetFilter.bots,
+          excludeMuted: targetFilter.excludeMuted,
+          excludeRead: targetFilter.excludeRead,
+          excludeArchived: targetFilter.excludeArchived,
+          emoticon: targetFilter.emoticon,
+        }),
+      })
+    );
+
+    return { success: true, message: `Added "${chatTitle}" to folder "${folderTitle}"` };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { success: false, message: msg };
+  }
+}
+
+export async function removeChatFromFolder(
+  client: TelegramClient,
+  folderName: string,
+  chatIdentifier: string
+): Promise<{ success: boolean; message: string }> {
+  const result = await client.invoke(new Api.messages.GetDialogFilters());
+
+  let targetFilter: Api.DialogFilter | null = null;
+  for (const filter of result.filters) {
+    if (filter instanceof Api.DialogFilter) {
+      const filterTitle = typeof filter.title === 'string' ? filter.title : (filter.title?.text ?? '');
+      if (filterTitle.toLowerCase() === folderName.toLowerCase()) {
+        targetFilter = filter;
+        break;
+      }
+    }
+  }
+
+  if (!targetFilter) {
+    return { success: false, message: `Folder not found: ${folderName}` };
+  }
+
+  const chat = await resolveChat(client, chatIdentifier);
+  const chatTitle = getChatTitle(chat);
+  const folderTitle = typeof targetFilter.title === 'string' ? targetFilter.title : (targetFilter.title?.text ?? 'Untitled');
+
+  // Find and remove from includePeers
+  let found = false;
+  const newIncludePeers: Api.TypeInputPeer[] = [];
+
+  for (const peer of targetFilter.includePeers) {
+    try {
+      const entity = await client.getEntity(peer);
+      if (entity.id.equals(chat.id)) {
+        found = true;
+        continue; // Skip this peer (remove it)
+      }
+    } catch {
+      // Keep unresolvable peers
+    }
+    newIncludePeers.push(peer);
+  }
+
+  if (!found) {
+    return { success: false, message: `"${chatTitle}" is not in folder "${folderTitle}"` };
+  }
+
+  try {
+    await client.invoke(
+      new Api.messages.UpdateDialogFilter({
+        id: targetFilter.id,
+        filter: new Api.DialogFilter({
+          id: targetFilter.id,
+          title: targetFilter.title,
+          pinnedPeers: targetFilter.pinnedPeers,
+          includePeers: newIncludePeers,
+          excludePeers: targetFilter.excludePeers,
+          contacts: targetFilter.contacts,
+          nonContacts: targetFilter.nonContacts,
+          groups: targetFilter.groups,
+          broadcasts: targetFilter.broadcasts,
+          bots: targetFilter.bots,
+          excludeMuted: targetFilter.excludeMuted,
+          excludeRead: targetFilter.excludeRead,
+          excludeArchived: targetFilter.excludeArchived,
+          emoticon: targetFilter.emoticon,
+        }),
+      })
+    );
+
+    return { success: true, message: `Removed "${chatTitle}" from folder "${folderTitle}"` };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { success: false, message: msg };
+  }
+}
+
+function getChatTitleFromEntity(entity: Api.User | Api.Chat | Api.Channel | Api.ChatForbidden | Api.ChannelForbidden): string {
+  if (entity instanceof Api.User) {
+    return entity.firstName || entity.username || 'Unknown User';
+  }
+  if (entity instanceof Api.Chat || entity instanceof Api.Channel) {
+    return entity.title;
+  }
+  if (entity instanceof Api.ChatForbidden || entity instanceof Api.ChannelForbidden) {
+    return entity.title;
+  }
+  return 'Unknown';
+}
+
+function getEntityType(entity: Api.User | Api.Chat | Api.Channel | Api.ChatForbidden | Api.ChannelForbidden): string {
+  if (entity instanceof Api.User) return 'user';
+  if (entity instanceof Api.Chat) return 'group';
+  if (entity instanceof Api.Channel) return entity.megagroup ? 'supergroup' : 'channel';
+  return 'unknown';
+}
+
+// --- Kick Function ---
+
+export async function kickUser(
+  client: TelegramClient,
+  chatIdentifier: string,
+  userIdentifier: string
+): Promise<{ success: boolean; message: string }> {
+  const chat = await resolveChat(client, chatIdentifier);
+
+  // Get the user to kick
+  let user: Api.User;
+  try {
+    const entity = await client.getEntity(userIdentifier);
+    if (!(entity instanceof Api.User)) {
+      return { success: false, message: 'Target is not a user' };
+    }
+    user = entity;
+  } catch (e) {
+    return { success: false, message: `User not found: ${userIdentifier}` };
+  }
+
+  if (chat instanceof Api.Channel) {
+    // For channels/supergroups, use EditBanned
+    try {
+      await client.invoke(
+        new Api.channels.EditBanned({
+          channel: chat,
+          participant: user,
+          bannedRights: new Api.ChatBannedRights({
+            untilDate: 0, // Permanent
+            viewMessages: true,
+            sendMessages: true,
+            sendMedia: true,
+            sendStickers: true,
+            sendGifs: true,
+            sendGames: true,
+            sendInline: true,
+            embedLinks: true,
+          }),
+        })
+      );
+      return { success: true, message: `Kicked ${user.username || user.firstName} from ${chat.title}` };
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('ADMIN') || msg.includes('RIGHT')) {
+        return { success: false, message: 'Not admin or insufficient rights' };
+      }
+      if (msg.includes('USER_NOT_PARTICIPANT')) {
+        return { success: false, message: 'User is not a member' };
+      }
+      return { success: false, message: msg };
+    }
+  } else if (chat instanceof Api.Chat) {
+    // For regular groups, use DeleteChatUser
+    try {
+      await client.invoke(
+        new Api.messages.DeleteChatUser({
+          chatId: chat.id,
+          userId: user,
+          revokeHistory: false,
+        })
+      );
+      return { success: true, message: `Kicked ${user.username || user.firstName} from ${chat.title}` };
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('ADMIN') || msg.includes('RIGHT')) {
+        return { success: false, message: 'Not admin or insufficient rights' };
+      }
+      if (msg.includes('USER_NOT_PARTICIPANT')) {
+        return { success: false, message: 'User is not a member' };
+      }
+      return { success: false, message: msg };
+    }
+  }
+
+  return { success: false, message: 'Not a group chat' };
+}
