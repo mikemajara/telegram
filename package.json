@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "telegram": "dist/index.js"
+    "tg": "dist/index.js"
   },
   "scripts": {
     "build": "npx tsc",
