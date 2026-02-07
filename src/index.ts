@@ -24,6 +24,7 @@ import {
   folderCommand,
   folderAddCommand,
   folderRemoveCommand,
+  logoutCommand,
 } from './commands/index.js';
 
 const require = createRequire(import.meta.url);
@@ -38,6 +39,7 @@ program
 
 // Auth commands
 program.addCommand(authCommand);
+program.addCommand(logoutCommand);
 program.addCommand(checkCommand);
 program.addCommand(whoamiCommand);
 

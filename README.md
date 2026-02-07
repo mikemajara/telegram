@@ -91,9 +91,49 @@ tg inbox --plain                       # Plain text (no colors)
 
 ## Configuration
 
-Configuration is stored in `~/.config/tg/`:
-- `config.json` - API credentials and session
-- Session data is encrypted and stored securely
+Configuration is stored in `~/.config/tg/config.json5` with restrictive file permissions (`0600`).
+
+### Logging Out
+
+```bash
+tg logout                              # Clear session only
+tg logout --all                        # Clear session and API credentials
+```
+
+## Security
+
+**Important**: Your Telegram session and API credentials are stored locally. Treat these files as sensitive.
+
+### What's Stored
+
+| Data | Location | Sensitivity |
+|------|----------|-------------|
+| API ID & Hash | `~/.config/tg/config.json5` | Medium - identifies your app |
+| Session String | `~/.config/tg/config.json5` | **High** - grants full account access |
+
+### Security Best Practices
+
+1. **Protect your config file** - The session string provides full access to your Telegram account. Anyone with this file can:
+   - Read all your messages
+   - Send messages as you
+   - Access your contacts and groups
+
+2. **Don't share or commit** - Never commit `config.json5` to version control or share it with others.
+
+3. **Use logout when done** - On shared machines, always run `tg logout` when finished.
+
+4. **Monitor active sessions** - Periodically check your active sessions in Telegram settings (Settings → Devices).
+
+5. **File permissions** - The CLI automatically sets restrictive permissions (`0600`), but verify if concerned:
+   ```bash
+   ls -la ~/.config/tg/
+   ```
+
+### If Your Session Is Compromised
+
+1. Immediately terminate all sessions in Telegram (Settings → Devices → Terminate All Other Sessions)
+2. Run `tg logout --all` to clear local credentials
+3. Re-authenticate with `tg auth`
 
 ## Claude Code Skill
 

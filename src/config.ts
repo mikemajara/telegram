@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import JSON5 from 'json5';
@@ -130,4 +130,37 @@ export function setSessionString(session: string): void {
 export function getSessionString(): string | undefined {
   const config = loadConfig(() => {});
   return config.sessionString;
+}
+
+export function clearSession(): void {
+  const path = getGlobalConfigPath();
+  if (!existsSync(path)) {
+    return;
+  }
+
+  try {
+    const raw = readFileSync(path, 'utf8');
+    const parsed = JSON5.parse(raw);
+    if (isPlainObject(parsed)) {
+      // Remove only the session, keep API credentials
+      delete (parsed as Record<string, unknown>).sessionString;
+      const content = JSON5.stringify(parsed, null, 2);
+      writeFileSync(path, content, { encoding: 'utf8', mode: 0o600 });
+    }
+  } catch {
+    // If we can't parse, just leave it alone
+  }
+
+  // Invalidate cache
+  cachedConfig = null;
+}
+
+export function clearAllCredentials(): void {
+  const path = getGlobalConfigPath();
+  if (existsSync(path)) {
+    unlinkSync(path);
+  }
+
+  // Invalidate cache
+  cachedConfig = null;
 }
